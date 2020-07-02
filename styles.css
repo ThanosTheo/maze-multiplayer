@@ -1,0 +1,49 @@
+*{
+    box-sizing: border-box;
+
+}
+
+body{
+    margin: 0px;
+    padding: 0px;
+    font-family: Helvetica, Arial, Sans-Serif;
+}
+
+/* MAZE */
+.parrentContainer
+{
+    display: flex;
+    justify-content: center;
+}
+
+.container
+{
+    display: inline-block;
+    margin: 20px auto;
+}
+
+#mazeContainer
+{
+    margin-top: 10px;
+}
+
+.buttons
+{
+    display: block;
+    text-align: center;
+}
+
+.buttons button
+{
+    margin-top: 10px;
+}
+
+canvas{
+    border: 1px solid black;
+}
+
+.instructions
+{
+    font-size: 20px;
+    text-align: center;
+}
