@@ -29,6 +29,26 @@ var NEIGHBOURS = [
     [1,0],      // BOTTOM
     [0,-1]      // LEFT
 ]
+
+// firebase
+var firebaseConfig = 
+{
+    apiKey: "AIzaSyAcV_n9FkzSt2-OhkbKEketX8K4UY55nQo",
+    authDomain: "maze-d9f93.firebaseapp.com",
+    databaseURL: "https://maze-d9f93.firebaseio.com",
+    projectId: "maze-d9f93",
+    storageBucket: "maze-d9f93.appspot.com",
+    messagingSenderId: "731110122878",
+    appId: "1:731110122878:web:c4b003d26e73982ef97f2f"
+};
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+
+
+// set the board state if it is not set
+var db = firebase.firestore();
+
+
 var maze;
 
 class Maze
@@ -179,9 +199,10 @@ class Maze
 
 class Player
 {
-    constructor()
+    constructor(color)
     {
         this.width = (gridSize/2)-3;
+        this.color = color;
 
         // draw player at starting postion
         this.currX = 0;
@@ -190,23 +211,13 @@ class Player
 
     }
     
-    draw(x,y, drawPath)
-    {        
-        if(drawPath)
-        {
-            context.beginPath();
-            context.rect((this.currX * gridSize), (this.currY * gridSize), gridSize,  gridSize);
-            context.fillStyle =  "#FF0000";
-            context.fill();
-        }
-
+    draw(x,y)
+    {
         context.beginPath();
         context.arc(this.getPosition(x+1), this.getPosition(y+1) , this.width, 0, 2 * Math.PI, false);
         context.closePath();
-        context.fillStyle =  "#009900";
+        context.fillStyle =  this.color;
         context.fill();
-        
-        this.checkWIN();
     }  
     
     clear(x,y)
@@ -223,17 +234,22 @@ class Player
         return (i * gridSize) - (gridSize/2)
     }
 
-    move(dir, drawPath=false)
+    move(dir)
     {
         var  [newX,newY] = this.getNewCords(dir);
 
         if(this.validMove(newX, newY, dir))
-        {
+        {          
+            db.collection("users").doc(window.id).update({
+                posX: newX,
+                posY: newY
+            })
+      
+
             this.clear(this.currX,this.currY);
-            this.draw(newX,newY, drawPath);
+            this.draw(newX,newY);
             this.currX = newX;
             this.currY = newY;
-            this.checkWIN();
         }
     }
 
@@ -269,43 +285,17 @@ class Player
             default: return;
         }
     }
-
-    checkWIN()
-    {
-        if(this.currX === this.currY && this.currX === SIZE-1)
-        {
-            setTimeout(function(){
-                window.alert("YOU WIN!");
-            }, 10);
-        }
-    }
 }
 
 
 
 (function () 
 {
-    
-    var maze = new Maze();
-    var player = new Player();
+    var name = prompt("Select a username");
+    player = new Player(getRandomColor());
     var playerlist = [];
 
     var fire =  function(){
-        var firebaseConfig = {
-        apiKey: "AIzaSyAcV_n9FkzSt2-OhkbKEketX8K4UY55nQo",
-        authDomain: "maze-d9f93.firebaseapp.com",
-        databaseURL: "https://maze-d9f93.firebaseio.com",
-        projectId: "maze-d9f93",
-        storageBucket: "maze-d9f93.appspot.com",
-        messagingSenderId: "731110122878",
-        appId: "1:731110122878:web:c4b003d26e73982ef97f2f"
-        };
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        
-        
-        // set the board state if it is not set
-        var db = firebase.firestore();
         var board = db.collection('maze').doc('board')
         db.runTransaction(function(transaction) {
             return transaction.get(board).then(function(doc) {
@@ -358,9 +348,10 @@ class Player
         // users
         // add user on load
         db.collection("users").add({
+            name: name,
             posX: 0,
             posY: 0,
-            color: getRandomColor()
+            color: player.color
         })
         .then(function(presenceRef) 
         {
@@ -373,14 +364,24 @@ class Player
         });
 
         //remove user on leave
-        window.onbeforeunload = confirmExit;
-        function confirmExit() {
+        window.addEventListener("beforeunload", function (e) 
+        {
             removeUser();
-            return "You have attempted to leave this page. Are you sure?";
-        }
-        
+            var confirmationMessage = "\o/";     
+            e.returnValue = confirmationMessage;           
+            return confirmationMessage;       
+          
+        });
         async function removeUser() {
-            await db.collection("users").doc(window.id).delete();
+            try
+            {
+                await db.collection("users").doc(window.id).delete();
+                process.exit(0);
+            }
+            catch (err) 
+            {
+                process.exit(1);
+            }
         }
 
         //update player positions
@@ -399,19 +400,43 @@ class Player
                     // save and draw the new player positions
                     data.forEach(function(user,indx)
                     {
-                        var tempPlayer = new Player(user.color);
-                        tempPlayer.currX = user.posX;
-                        tempPlayer.currY = user.posY;
-                        tempPlayer.draw(user.posX, user.posY);
+                        if(player.color !== user.color)
+                        {
+                            var tempPlayer = new Player(user.color);
+                            if(!tempPlayer.currX || !tempPlayer.currY)
+                            {
+                                tempPlayer.clear(0,0);
+                            }
+                            tempPlayer.currX = user.posX;
+                            tempPlayer.currY = user.posY;
+                            tempPlayer.draw(user.posX, user.posY);
+    
+                            if(indx > playerlist.length - 1){
+                                playerlist.push(tempPlayer)
+                            }
+                            else
+                            {
+                                playerlist[indx] = tempPlayer;
+                            }
 
-                        if(indx > playerlist.length - 1){
-                            playerlist.push(tempPlayer)
+                            if(user.posX === user.posY && user.posX === SIZE-1)
+                            {
+                                window.alert("Player: " + user.name + " wins");
+                            }
                         }
                         else
                         {
-                            playerlist[indx] = tempPlayer;
+                            if(player.currX === player.currY && player.currX === SIZE-1)
+                            {
+                                setTimeout(function(){
+                                    window.alert("You win!");
+                                    newGame(window.resetBoard());
+                                }, 10);
+                            }
                         }
                     });
+
+                    player.draw(player.currX,player.currY);
                 });
             }
         )
@@ -419,18 +444,6 @@ class Player
         
     }
     fire();
-
-    function newGame(SEED)
-    {
-        maze= new Maze(SEED);
-        player = new Player();
-    }
-
-    async function getUsers()
-    {
-        const snapshot = await firebase.firestore().collection('users').get()
-        return snapshot.docs.map(doc => doc.data());
-    }
 
     function getRandomColor() {
         var letters = '0123456789ABCDEF';
@@ -463,11 +476,35 @@ class Player
                 break;
             default: return;
         }
-
-        player.move(dir)
+        player.move(dir)     
     },true);
 })();
 
+var mazeObj;
+var player;
+
+
+async function getUsers()
+{
+    const snapshot = await db.collection('users').get()
+    return snapshot.docs.map(doc => doc.data());
+}
+
+
+// on win restart the game
+async function newGame(SEED)
+{
+    mazeObj= new Maze(SEED);
+    player = new Player(player.color);
+    db.collection("users").get().then(function(querySnapshot) {
+        querySnapshot.forEach(function(doc) {
+            doc.ref.update({
+                posX: 0,
+                posY: 0
+            });
+        });
+    });
+}
 
 // DEBUG
 // console.log(temp[0])
