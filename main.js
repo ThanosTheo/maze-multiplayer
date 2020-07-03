@@ -315,7 +315,6 @@ class Player
             });
         }).then(function() 
         {
-
             console.log("Transaction successfully committed!");
         }).catch(function(error) 
         {
@@ -341,7 +340,7 @@ class Player
             SEED = doc.data().seed;
             SIZE = doc.data().size;
             gridSize = width / SIZE;
-            newGame(SEED)
+            newGame(SEED);
         });
 
 
@@ -356,7 +355,6 @@ class Player
         .then(function(presenceRef) 
         {
             window.id = presenceRef.id;
-            
         })
         .catch(function(error)
         {
@@ -364,23 +362,21 @@ class Player
         });
 
         //remove user on leave
-        window.addEventListener("beforeunload", function (e) 
+        document.getElementById('leave').addEventListener("click", function (e) 
         {
-            removeUser();
-            var confirmationMessage = "\o/";     
-            e.returnValue = confirmationMessage;           
-            return confirmationMessage;       
+            removeUser().then(function(){
+                window.close(); 
+            }); 
           
         });
         async function removeUser() {
             try
             {
-                await db.collection("users").doc(window.id).delete();
-                process.exit(0);
+                await db.collection("users").doc(window.id).delete();  
             }
             catch (err) 
             {
-                process.exit(1);
+                console.log(err);
             }
         }
 
@@ -407,6 +403,7 @@ class Player
                             {
                                 tempPlayer.clear(0,0);
                             }
+                            
                             tempPlayer.currX = user.posX;
                             tempPlayer.currY = user.posY;
                             tempPlayer.draw(user.posX, user.posY);
@@ -419,6 +416,7 @@ class Player
                                 playerlist[indx] = tempPlayer;
                             }
 
+                            //check if other player has won
                             if(user.posX === user.posY && user.posX === SIZE-1)
                             {
                                 window.alert("Player: " + user.name + " wins");
@@ -426,11 +424,13 @@ class Player
                         }
                         else
                         {
+                            //check if current player has won
                             if(player.currX === player.currY && player.currX === SIZE-1)
                             {
                                 setTimeout(function(){
                                     window.alert("You win!");
                                     newGame(window.resetBoard());
+                                    ResetPos();
                                 }, 10);
                             }
                         }
@@ -492,11 +492,15 @@ async function getUsers()
 
 
 // on win restart the game
-async function newGame(SEED)
+function newGame(SEED)
 {
     mazeObj= new Maze(SEED);
     player = new Player(player.color);
-    db.collection("users").get().then(function(querySnapshot) {
+    
+}
+async function ResetPos()
+{
+    await db.collection("users").get().then(function(querySnapshot) {
         querySnapshot.forEach(function(doc) {
             doc.ref.update({
                 posX: 0,
@@ -505,12 +509,3 @@ async function newGame(SEED)
         });
     });
 }
-
-// DEBUG
-// console.log(temp[0])
-// console.log(temp[1])
-// console.log(moves)
-// console.log(currentNode)
-// var res =  window.prompt() 
-// if (res === "exit") return;
-// DEBUG
